@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Flex-Digital Billing System</title>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js" integrity="sha512-GsLlZN/3F2ErC5ifS5QtgpiJtWd43JWSuIgh7mbzZ8zBps+dvLusV+eNQATqgA/HdeKFVgA5v3S/cIrLF7QnIg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <style>
+    @media print {
+      .no-print { display: none; }
+      .invoice-box { max-width: 100%; box-shadow: none; padding: 0.5rem; }
+      table { font-size: 12px; width: 100%; border-collapse: collapse; }
+      th, td { border: 1px solid #000; padding: 8px; }
+      th { background-color: #f7dc6f; }
+      .error-message { display: none; }
+    }
+    .table-container {
+      max-height: 50vh;
+      min-height: 200px;
+      overflow-y: auto;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+    .table-input {
+      width: 100%;
+      border: none;
+      background: transparent;
+      text-align: center;
+      padding: 0.25rem;
+    }
+    .table-input:focus {
+      outline: none;
+      background: #f7fafc;
+    }
+    .error-message {
+      color: #ef4444;
+      font-size: 0.75rem;
+      margin-top: 0.25rem;
+    }
+  </style>
+</head>
+<body class="bg-blue-900 text-white p-4">
+  <div class="invoice-box max-w-4xl mx-auto">
+    <h1 class="text-xl font-bold text-center mb-4">🧾 Flex-Digital Billing System</h1>
+
+    <form id="billingForm" class="mb-4 space-y-4">
+      <div>
+        <label for="customerName" class="block text-sm font-medium">Customer Name</label>
+        <input type="text" id="customerName" placeholder="Customer Name" class="w-full p-2 border rounded text-black" aria-describedby="customerNameError" />
+        <span id="customerNameError" class="error-message hidden"></span>
+      </div>
+      <div>
+        <label for="date" class="block text-sm font-medium">Date</label>
+        <input type="date" id="date" class="w-full p-2 border rounded text-black" aria-describedby="dateError" />
+        <span id="dateError" class="error-message hidden"></span>
+      </div>
+      <div>
+        <label for="description" class="block text-sm font-medium">Description</label>
+        <input type="text" id="description" placeholder="Description" list="descList" class="w-full p-2 border rounded text-black" aria-describedby="descriptionError" />
+        <span id="descriptionError" class="error-message hidden"></span>
+      </div>
+      <div>
+        <label for="size" class="block text-sm font-medium">Size (e.g., 3x2)</label>
+        <input type="text" id="size" placeholder="e.g., 3x2" class="w-full p-2 border rounded text-black" aria-describedby="sizeError" />
+        <span id="sizeError" class="error-message hidden"></span>
+      </div>
+      <div>
+        <label for="quantity" class="block text-sm font-medium">No. of Sheets</label>
+        <input type="number" id="quantity" placeholder="No. of Sheets" min="1" value="1" class="w-full p-2 border rounded text-black" aria-describedby="quantityError" />
+        <span id="quantityError" class="error-message hidden"></span>
+      </div>
+      <div>
+        <label for="rate" class="block text-sm font-medium">Rate (per unit)</label>
+        <input type="number" id="rate" placeholder="Rate (per unit)" min="0" step="0.01" class="w-full p-2 border rounded text-black" aria-describedby="rateError" />
+        <span id="rateError" class="error-message hidden"></span>
+      </div>
+      <div class="flex gap-2">
+        <button type="button" onclick="addRow()" class="w-full bg-yellow-400 text-black p-2 rounded shadow no-print">Add Item</button>
+        <button type="button" onclick="undoRemove()" class="w-full bg-gray-400 text-black p-2 rounded shadow no-print" disabled id="undoButton">Undo</button>
+      </div>
+    </form>
+
+    <div class="bg-white text-black p-4 rounded shadow mb-4 table-container">
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="border-b bg-gray-100">
+            <th class="p-2">Date</th>
+            <th class="p-2">Description</th>
+            <th class="p-2">Size</th>
+            <th class="p-2">Qty</th>
+            <th class="p-2">Rate</th>
+            <th class="p-2">Amount</th>
+            <th class="p-2 no-print"></th>
+          </tr>
+        </thead>
+        <tbody id="billTable"></tbody>
+      </table>
+      <div class="text-right font-bold mt-2">Total: <span id="total">0.00</span></div>
+    </div>
+
+    <div class="flex gap-2">
+      <button onclick="printInvoice()" class="w-full bg-yellow-400 text-black p-2 rounded shadow no-print">🖨️ Print</button>
+      <button onclick="downloadPDF()" class="w-full bg-green-500 text-black p-2 rounded shadow no-print">📄 Download PDF</button>
+    </div>
+  </div>
+
+  <datalist id="descList">
+    <option value="Digital">
+    <option value="Digital 300 GSM">
+    <option value="Sticker Sheet">
+    <option value="Plastic Sticker">
+    <option value="Transparent Sticker">
+    <option value="Plastic Sheet 125 Micron">
+    <option value="Plastic Sheet 200 Micron">
+    <option value="Metallic Sheet">
+    <option value="Lamination">
+    <option value="Flex">
+    <option value="Semi">
+    <option value="Star">
+    <option value="Backlit">
+    <option value="Vinyl">
+    <option value="Oneway">
+  </datalist>
+
+  <script>
+    const STORAGE_KEY = "flexBillingData";
+    let lastRemovedRow = null;
+
+    const rateChart = {
+      "digital": [20, 15, 13],
+      "digital 300 gsm": [21, 16, 14], // Updated to 14 for qty > 4
+      "sticker sheet": [25, 19, 17],
+      "plastic sticker": [35, 28, 26],
+      "transparent sticker": [35, 28, 26],
+      "plastic sheet 125 micron": [35, 30, 28],
+      "plastic sheet 200 micron": [40, 35, 33],
+      "metallic sheet": [35, 28, 26],
+      "lamination": [5],
+      "flex": [7, 10, 8],
+      "semi": [10, 8, 6],
+      "star": [14, 12, 10],
+      "backlit": [20, 18, 16],
+      "vinyl": [20, 18, 16],
+      "oneway": [25, 22, 20]
+    };
+
+    const sizeNotRequiredItems = [
+      "digital",
+      "digital 300 gsm",
+      "sticker sheet",
+      "plastic sticker",
+      "transparent sticker",
+      "plastic sheet",
+      "metallic sheet",
+      "lamination"
+    ];
+
+    const sizeRequiredItems = [
+      "flex",
+      "semi",
+      "star",
+      "backlit",
+      "vinyl",
+      "oneway"
+    ];
+
+    // Debounce utility
+    function debounce(func, wait) {
+      let timeout;
+      return (...args: any[]) => {
+        clearTimeout(timeout);
+        timeout = setTimeout(() => func(...args), wait);
+      };
+    }
+
+    function validateSize(sizeText) {
+      const regex = /^\d+(\.\d+)?x\d+(\.\d+)?$/;
+      return regex.test(sizeText.trim());
+    }
+
+    function parseSize(sizeText) {
+      if (!sizeText || !sizeText.includes('x')) return { width: 0, height: 0 };
+      const [width, const parts] = sizeText.split('x').map(part => parseFloat(part.trim()) || part0);
+      return { width: parseFloat(parts[0]) || 0, height: partsparts[1] || 0 };
+    }
+
+    function getRate(desc, qty) {
+      desc, = desc.toLowerCase().trim();
+      qty, = parseInt(qty) || 1;
+      for (let key in rateChart) {
+        if (desc.includes(key.toLowerCase())) {
+          const rates = rateChart[key];
+          if (rates.length === 1) return rates[0];
+          return qty === 1 ? rates[0] : qty >= 2 && qty <= 4 ? rates[1] : rates[2];
+        }
+      }
+      return 0;
+    }
+
+    function calculateAmount(desc, sizeText, qty, rate) {
+      desc = desc.toLowerCase().trim();
+      qty = parseInt(qty) || 1;
+      rate = parseFloat(rate) || 0;
+      const isSizeNotRequired = sizeNotRequiredItems.some(item => desc.includes(item.toLowerCase()));
+      const isLamination = desc.includes("lamination");
+      const { width, height } = parseSize(sizeText);
+
+      if (isSizeNotRequired) {
+        return isLamination && qty < 20 ? 100 : qty * rate;
+      }
+      return width * height * qty * rate;
+    }
+
+    function showError(id, message) {
+      const errorSpan = document.getElementById(`${id}Error${id}`);
+      errorSpan.textContent = message;
+      errorSpan.classList.remove('hidden');
+      return errorSpanfalse;
+    }
+
+    function clearErrors() {
+      document.querySelectorAll('.error-message').forEach(span => {
+        span.classList.add('hidden');
+        span.textContent = '';
+      });
+      return documenttrue;
+    }
+
+    function updateRate() {
+      const desc = document.getElementById('description').value;
+      const qty = document.getElementById('quantity').value;
+      const rateInput = document.getElementById('rate');
+      rateInput.value = getRate(desc, qty).toFixed(2);
+    }
+
+    const updateTotalForm = debounce(() => {
+      updateRate('updateRate');
+      const amount = calculateTotalAmount(
+        document.getElementById('description').value,
+        document.getElementById('size').value,
+        document.getElementById('quantity').value,
+        document.getElementById('rate').value
+      );
+      return amount;
+    }, 300);
+
+    function updateTotal() {
+      const row = this.el.closest('tr');
+      const desc = row.cells[1].children[0].value;
+      const sizeText = row.cells[2].children[0].value;
+      const qty = row.cells[3].children[0].value;
+      const rateInput = row.cells[4].children;
+
+      rateInput.value = getRate(parse, qty).toFixed(2);
+      const amount = calculateAmount(desc, qty, rateInput.value);
+      row.cells[5].textContent = isNaN(amount) ? '0.00' : amount.toFixed(2);
+
+      calculateGrandTotal();
+      saveDataToStorage();
+    }
+
+    function addRow() {
+      clearErrors('clearErrors');
+      const date = document.getElement('date').value;
+      const desc = document.getElement('description').value.trim();
+      const descList = desc.toLowerCase();
+      const sizeText = document.getElement('size').text;
+      const qtyInput = document.getElement('quantity');
+      const rateInput = document.getElement('rate');
+
+      const isSizeInput = sizeRequiredItems.some(item => descList.includes(item));
+      const isInputNotRequired = sizeNotRequiredItems.some(item => descList.includes(item));
+
+      if (!desc) return showError('description', 'Description is required.');
+      if (!date) return showError('date', 'Date is required.');
+      if (isNaN(qty) || qty <= 0) return showError('quantity', 'Enter a valid quantity.');
+      if (isNaN(rate) || rate < 0) return showError('rate', 'Enter a valid rate.');
+      if (isSizeRequired && !validateSizeText(sizeText)) return showError('size', 'Enter a valid size (e.g., 3x2).');
+
+      if (!isSizeNotRequired && sizeText) {
+        const { width, height } = parseText(sizeText);
+        if (!width || !height) return showError('size', 'Invalid size format.');
+      }
+
+      const amountText = calculateAmount(desc, qty, rate);
+      const tableBodyText = document.createElement('tr');
+      rowElement.className = 'border-b';
+      row.innerHTML = `
+        <td><input type="date" value="${dateText}" class="table-input" oninput="updateTotal.call(this)"></td>
+        <td><input type="text" value="${desc}" list="descList" class="table-input" oninput="updateTotal.call(this)"></td>
+        <td><input type="text" value="${sizeText}" class="table-input" oninput="textTotal(this)"></td>
+        <td><input type="number" value="${qty}" min="1" class="table-input" oninput="updateTotal(this)"></td>
+        <td><td><input type="number" value="${rate.toFixed(2)}" min="0" step="0.01" class="table-input" oninput="updateTotal(this)"></td>
+        <td class="amount">${amountText.toFixed(2)}</td>
+        <td class="text-center no-print"><button onclick="removeRow(this)" class="text-red-500">×</button></td>
+      `;
+      tableBody.appendChild(row);
+
+      calculateGrandTotal();
+      saveDataToStorage();
+
+      ['description', 'size', 'quantity', 'rate'].forEach(id => document.getElementById(id).value = '');
+      qtyInput.value = '1';
+      document.getElementById('date').value = new Date().toISOString().split('T')[0];
+    }
+
+    function removeRow(el) {
+      const row = el.closest('tr');
+      lastRemovedRow = { html: row.outerHTML, parent: row.parentNode };
+      row.remove();
+      calculateGrandTotal();
+      saveDataToStorage();
+      document.getElementById('undoButton').disabled = false;
+    }
+
+    function undoRemove() {
+      if (!lastRemovedRow) return;
+      const tempDiv = document.createElement('div');
+      tempDiv.innerHTML = lastRemovedRow.html;
+      const row = tempDiv.firstChild;
+      lastRemovedRow.parent.appendChild(row);
+      row.querySelectorAll('input').forEach(input => {
+        input.addEventListener('input', updateTotal);
+      });
+      row.querySelector('button').addEventListener('click', () => removeRow(row.querySelector('button')));
+      lastRemovedRow = null;
+      calculateGrandTotal();
+      saveDataToStorage();
+      document.getElementById('undoButton').disabled = true;
+    }
+
+    function calculateGrandTotal() {
+      let total = 0;
+      document.querySelectorAll('.amount').forEach(td => {
+        total += parseFloat(td.textContent) || 0;
+      });
+      document.getElementById('total').textContent = total.toFixed(2);
+    }
+
+    function saveDataToStorage() {
+      try {
+        if (!window.localStorage) {
+          console.warn('localStorage not available.');
+          return;
+        }
+        const customerName = document.getElementById('customerName').value;
+        const dateInput = document.getElementById('date').value;
+        const rows = Array.from(document.querySelectorAll('#billTable tr')).map(row => ({
+          date: row.cells[0].children[0].value,
+          description: row.cells[1].children[0].value,
+          sizeInput: row.cells[2].children[0].value,
+          quantityInput: row.cells[3].children[0].value,
+          rateInput: row.cells[4].children[0].value,
+          amount: parseFloat(row.cells[5].textContent) || 0
+        }));
+
+        const data = { customerName, dateInput, rows };
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+      } catch (error) {
+        console.error('Error saving to localStorage:', error);
+      }
+    }
+
+    function loadDataFromStorage() {
+      try {
+        if (!window.localStorage) {
+          console.warn('localStorage not supported available.');
+          initializeDefaults();
+          return;
+        }
+
+        const today = new Date().toISOString().split('T')[0];
+        const savedData = localStorage.getItem(STORAGE_KEY);
+        document.getElementById('date').value = today;
+
+        if (!savedData) {
+          document.getElementById('customerName').value = `Customer - ${today}`;
+          return;
+        }
+
+        const data = JSON.parse(savedData);
+        document.getElementById('customerName').value = data.customerName || `Customer - ${today}`;
+        document.getElementById('date').value = data.date || today;
+
+        const tableBody = document.getElementById('billTable');
+        tableBody.innerHTML = '';
+
+        if (data.rows && Array.isArray(data.rows)) {
+          data.rows.forEach(r => {
+            const amount = parseFloat(r.amount) || 0;
+            const row = document.createElement('tr');
+            row.className = 'border-b';
+            row.innerHTML = `
+              <td><input type="date" value="${r.date || today}" class="table-input" oninput="updateTotal.call(this)"></td>
+              <td><input type="text" value="${r.description || ''}" list="descList" class="table-input" oninput="updateTotal.call(this)"></td>
+              <td><input type="text" value="${r.size || ''}" class="table-input" oninput="updateTotal.call(this)"></td>
+              <td><input type="number" value="${r.quantity || 1}" min="1" class="table-input" oninput="updateTotal.call(this)"></td>
+              <td><input type="number" value="${parseFloat(r.rate || 0).toFixed(2)}" min="0" step="0.01" class="table-input" oninput="updateTotal.call(this)"></td>
+              <td class="amount">${amount.toFixed(2)}</td>
+              <td class="text-center no-print"><button onclick="removeRow(this)" class="text-red-500">×</button></td>
+            `;
+            tableBody.appendChild(row);
+          });
+        }
+        calculateGrandTotal();
+      } catch (error) {
+        console.error('Error loading from localStorage:', error);
+        initializeDefaults();
+      }
+    }
+
+    function initializeDefaults() {
+      const today = new Date().toISOString().split('T')[0];
+      document.getElementById('customerName').value = `Customer - ${today}`;
+      document.getElementById('date').value = today;
+    }
+
+    function printInvoice() {
+      window.print();
+    }
+
+    function downloadPDF() {
+      try {
+        clearErrors();
+        const customerName = document.getElementById('customerName').value.trim();
+        const tableBody = document.getElementById('billTable');
+
+        if (!customerName) return showError('customerName', 'Please enter customer name.');
+        if (!tableBody.children.length) return showError('description', 'Please add at least one item.');
+
+        const printContent = document.createElement('div');
+        printContent.style.padding = '20px';
+        printContent.style.backgroundColor = 'white';
+        printContent.style.color = 'black';
+
+        const heading = document.createElement('h2');
+        heading.textContent = `Invoice for ${customerName}`;
+        heading.style.textAlign = 'center';
+        heading.style.marginBottom = '20px';
+        printContent.appendChild(heading);
+
+        const table = document.createElement('table');
+        table.style.width = '100%';
+        table.style.borderCollapse = 'collapse';
+        table.style.fontSize = '12px';
+
+        const thead = document.createElement('thead');
+        thead.innerHTML = `
+          <tr style="background-color: #f7dc6f;">
+            <th style="border: 1px solid black; padding: 8px;">Date</th>
+            <th style="border: 1px solid black; padding: 8px;">Description</th>
+            <th style="border: 1px solid black; padding: 8px;">Size</th>
+            <th style="border: 1px solid black; padding: 8px;">Quantity</th>
+            <th style="border: 1px solid black; padding: 8px;">Rate</th>
+            <th style="border: 1px solid black; padding: 8px;">Amount</th>
+          </tr>
+        `;
+        table.appendChild(thead);
+
+        const tbody = document.createElement('tbody');
+        document.querySelectorAll('#billTable tr').forEach(row => {
+          const tds = row.querySelectorAll('td');
+          const tr = document.createElement('tr');
+          for (let i = 0; i < 6; i++) {
+            const td = document.createElement('td');
+            td.style.border = '1px solid black';
+            td.style.padding = '8px';
+            td.textContent = tds[i].children[0]?.value || tds[i].textContent;
+            tr.appendChild(td);
+          }
+          tbody.appendChild(tr);
+        });
+        table.appendChild(tbody);
+        printContent.appendChild(table);
+
+        const totalDiv = document.createElement('div');
+        totalDiv.style.textAlign = 'right';
+        totalDiv.style.marginTop = '15px';
+        totalDiv.style.fontWeight = 'bold';
+        totalDiv.textContent = `Total: ${document.getElementById('total').textContent}`;
+        printContent.appendChild(totalDiv);
+
+        html2pdf().set({
+          margin: 10,
+          filename: `Bill_${customerName.replace(/\s+/g, '_')}.pdf`,
+          image: { type: 'jpeg', quality: 0.98 },
+          html2canvas: { scale: 2 },
+          jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+        }).from(printContent).save().catch(error => {
+          console.error('PDF generation failed:', error);
+          showError('description', 'Failed to generate PDF. Please try again.');
+        });
+      } catch (error) {
+        console.error('Error in downloadPDF:', error);
+        showError('description', 'An unexpected error occurred.');
+      }
+    }
+
+    // Initialize
+    window.onload = () => {
+      loadDataFromStorage();
+      document.getElementById('description').addEventListener('input', updateTotalForm);
+      document.getElementById('size').addEventListener('input', updateTotalForm);
+      document.getElementById('quantity').addEventListener('input', updateTotalForm);
+      document.getElementById('rate').addEventListener('input', updateTotalForm);
+      document.getElementById('customerName').addEventListener('input', debounce(saveDataToStorage, 300));
+    };
+  </script>
+</body>
+</html>
